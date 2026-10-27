@@ -87,6 +87,8 @@ Saída esperada (resumida):
 
 Se houver qualquer erro, o script para (`ON_ERROR_STOP`) e cada arquivo é uma transação: nada fica pela metade.
 
+> **Alternativa sem `psql`:** os comandos `pnpm db:migrar` e `pnpm db:seed`, na pasta `server/`, aplicam os mesmos arquivos com verificações extras. Veja [06-api.md](06-api.md), seção 3.
+
 ---
 
 ## 3. Verificar se deu certo
@@ -162,7 +164,7 @@ Para cadastrar um ponto oficial, use `demonstrativo = false` com `fonte` (ex.: U
 
 ## 6. Segurança e backup básicos
 
-- **Nunca** coloque senhas em arquivos versionados. A API (CP2) vai ler a conexão de um `.env`, que é ignorado pelo Git; só `.env.example` é versionado.
+- **Nunca** coloque senhas em arquivos versionados. A API lê a conexão de `server/.env`, que é ignorado pelo Git; só `.env.example` é versionado.
 - [Planejado para o CP2] Criar um usuário próprio da aplicação com permissões mínimas (sem ser superusuário), em vez de usar `postgres`.
 - **Backup** (gera um arquivo compactado):
   ```powershell

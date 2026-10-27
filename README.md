@@ -12,11 +12,12 @@ Projeto acadêmico da disciplina *Desenvolvimento de aplicações para internet*
 
 ```
 web/        Front-end (React 19, TypeScript, Vite, Tailwind CSS, Leaflet), originado do protótipo Figma
+server/     API (Node.js 22, Express, TypeScript, pg): em construção no Checkpoint 2
 database/   PostgreSQL: migrações versionadas, dados demonstrativos e consultas de teste
 docs/       Documentação técnica (diagnóstico, modelagem, instalação, plano)
 ```
 
-A API (`server/`, Node.js + Express) entra no Checkpoint 2. Veja o [plano de execução](docs/04-plano-execucao.md).
+Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 
 ## Como rodar
 
@@ -24,6 +25,7 @@ A API (`server/`, Node.js + Express) entra no Checkpoint 2. Veja o [plano de exe
 |---|---|
 | Front-end | [docs/05-execucao-local.md](docs/05-execucao-local.md): `cd web && pnpm install --frozen-lockfile && pnpm dev` |
 | Banco de dados | [docs/03-banco-de-dados.md](docs/03-banco-de-dados.md): `createdb ecorecife` + `psql -f database/instalar.sql` |
+| API | [docs/06-api.md](docs/06-api.md): `cd server && pnpm install --frozen-lockfile`, configurar `.env`, `pnpm db:migrar` e `pnpm dev` |
 
 ## Documentação
 
@@ -32,4 +34,5 @@ A API (`server/`, Node.js + Express) entra no Checkpoint 2. Veja o [plano de exe
 3. [Banco: instalação e testes](docs/03-banco-de-dados.md)
 4. [Plano de execução (checkpoints)](docs/04-plano-execucao.md)
 5. [Execução local do front](docs/05-execucao-local.md)
-6. [Resumo de continuidade](docs/CONTINUIDADE.md)
+6. [API: instalação, comandos e endpoints](docs/06-api.md)
+7. [Resumo de continuidade](docs/CONTINUIDADE.md)
