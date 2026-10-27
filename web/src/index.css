@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  
+  --color-eco-50: #f0fdf7;
+  --color-eco-100: #dcfce7;
+  --color-eco-200: #bbf7d0;
+  --color-eco-500: #10b981;
+  --color-eco-600: #087E5B;
+  --color-eco-700: #066246;
+  --color-eco-800: #0a4f3a;
+  --color-eco-900: #123B3A;
+  
+  --color-ecoblue-50: #f0f9ff;
+  --color-ecoblue-100: #e0f2fe;
+  --color-ecoblue-500: #0ea5e9;
+  --color-ecoblue-600: #087EA4;
+  --color-ecoblue-700: #0369a1;
+  
+  --color-sun: #F4B942;
+  --color-canvas: #F5FAF8;
+}
+
+@layer base {
+  :root {
+    --ink: #123B3A;
+    --green: #087E5B;
+    --blue: #087EA4;
+    --mist: #EAF5F1;
+    --line: #C8DED7;
+    --sun: #F4B942;
+  }
+  body {
+    background-color: var(--color-canvas);
+    color: var(--ink);
+  }
+  button, input, select, textarea {
+    font: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .urban-grid {
+    background-image: linear-gradient(rgba(8, 126, 91, 0.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(8, 126, 91, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .leaf-pattern {
+    background: radial-gradient(ellipse 25px 67px at 18% 16%, #087e5b 0 47%, transparent 49%),
+                radial-gradient(ellipse 22px 63px at 47% 31%, #3a9b72 0 47%, transparent 49%),
+                radial-gradient(ellipse 23px 66px at 76% 47%, #207a59 0 47%, transparent 49%);
+  }
+  .filter-chip {
+    @apply border border-[#C8DED7] bg-white text-[#315C59] transition-all duration-200 cursor-pointer;
+  }
+  .filter-chip.active, .filter-chip:hover {
+    @apply bg-eco-600 text-white border-eco-600 shadow-[0_4px_12px_rgba(8,126,91,0.2)];
+  }
+  .place-card {
+    @apply border-l-4 border-ecoblue-600 transition-all duration-200 cursor-pointer;
+  }
+  .place-card:hover {
+    @apply -translate-y-1 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.08)];
+  }
+  .mobile-safe-bottom {
+    padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Leaflet Map Overrides */
+.leaflet-container {
+  height: 100%;
+  min-height: 420px;
+  width: 100%;
+  z-index: 1;
+  border-radius: 1.25rem;
+}
+.custom-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 2.5px solid #ffffff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  color: #ffffff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.custom-marker--truck {
+  border-radius: 10px;
+}
+.custom-marker--coop {
+  transform: rotate(45deg);
+  border-radius: 9px;
+}
+.custom-marker--coop span {
+  transform: rotate(-45deg);
+}
+.custom-marker:hover {
+  transform: scale(1.2);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.custom-marker--coop:hover {
+  transform: rotate(45deg) scale(1.2);
+}
+
+@media (min-width: 640px) {
+  .leaflet-container {
+    min-height: 520px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

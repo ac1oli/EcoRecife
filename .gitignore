@@ -1,0 +1,21 @@
+# Dependências e builds
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+vite.config.*.timestamp-*
+*.tsbuildinfo
+
+# Variáveis de ambiente (segredos). Apenas o modelo é versionado.
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+*-debug.log*
+
+# Fotografias enviadas em desenvolvimento (nunca versionar)
+uploads/
