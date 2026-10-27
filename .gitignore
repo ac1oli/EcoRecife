@@ -6,6 +6,7 @@ build/
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
+CLAUDE.md
 
 # Variáveis de ambiente (segredos). Apenas o modelo é versionado.
 .env

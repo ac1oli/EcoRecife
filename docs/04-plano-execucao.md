@@ -18,14 +18,14 @@ Cronograma oficial do edital nº 02/2026.2. Legenda: ✅ feito · ⏳ pendente �
 
 ## Checkpoint 2: 13/11/2026 (endpoints principais + conexão com o banco)
 
-Estrutura proposta: `server/` (Node 22 + TypeScript + Express).
+Estrutura: `server/` (Node 22 + TypeScript + Express). Guia: [06-api.md](06-api.md). ✅ = concluído.
 
 | Tarefa | Detalhe | Pronto quando |
 |---|---|---|
-| Base da API | `config` (variáveis de ambiente validadas), `db` (pool `pg`), tratamento de erros, `helmet`, CORS restrito | `GET /api/saude` responde e consulta o banco |
-| Executor de migrações | Script Node que aplica `database/migrations` ainda não registradas em `schema_migrations` | Banco novo criado só pelo script |
+| ✅ Base da API (parte 1) | `config` (variáveis de ambiente validadas), `db` (pool `pg`), tratamento de erros, `helmet`, CORS restrito | `GET /api/saude` responde e consulta o banco |
+| ✅ Executor de migrações (parte 1) | Script Node que aplica `database/migrations` ainda não registradas em `schema_migrations` | Banco novo criado só pelo script |
 | Autenticação | `POST /api/auth/login` (bcrypt), sessão em cookie `httpOnly`, limite de tentativas, `GET /api/auth/eu`, logout | Rotas protegidas retornam 401/403 corretamente |
-| Primeiro administrador | Comando `pnpm criar-admin` que pede e-mail e senha no terminal (nada fica no código) | Login funciona com o usuário criado |
+| ⏳ Primeiro administrador (comando pronto na parte 1; o login será verificado na parte 2) | Comando `pnpm criar-admin` que pede e-mail e senha no terminal (nada fica no código) | Login funciona com o usuário criado |
 | Ocorrências (público) | `POST /api/ocorrencias` (multipart, até 3 fotos validadas pelo conteúdo), `GET /api/ocorrencias/protocolo/:protocolo` (só campos públicos, com limite de tentativas) | Protocolo retornado e consultável |
 | Ocorrências (gestão) | Listagem paginada com filtros, detalhe, `PATCH` de status/prioridade com transições validadas e histórico, conclusão, reabertura, fotos protegidas | Testes de permissão passando |
 | Guia de reciclagem | `GET /api/pontos` (filtros por tipo e material), `GET /api/pontos/proximos?lat&lng&limite=3`, CRUD para admin | Resultados iguais aos de `consultas_teste.sql` |
