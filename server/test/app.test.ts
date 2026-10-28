@@ -1,9 +1,14 @@
 // Testes da aplicação Express com um banco falso (sem PostgreSQL).
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { criarApp } from '../src/app.js';
 
-const config = { origensCors: ['http://localhost:5173'] };
+// Estes testes não enviam fotos; a pasta existe só para completar a configuração.
+const SEM_UPLOAD = path.join(tmpdir(), 'ecorecife-testes-sem-upload');
+
+const config = { origensCors: ['http://localhost:5173'], ambiente: 'test' as const, sessaoHoras: 8, pastaUploads: SEM_UPLOAD };
 const bancoOk = { query: vi.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }) };
 const bancoFora = { query: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432')) };
 

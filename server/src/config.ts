@@ -1,6 +1,10 @@
 // Configuração da API lida das variáveis de ambiente e validada com zod.
 // Nenhum valor sensível tem padrão no código: sem DATABASE_URL a API não sobe.
+import path from 'node:path';
 import { z } from 'zod';
+
+// Pasta server/: base dos caminhos relativos do .env (independe de onde o comando roda).
+const PASTA_SERVER = path.resolve(import.meta.dirname, '..');
 
 const esquema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -18,6 +22,10 @@ const esquema = z.object({
         .array(z.url({ protocol: /^https?$/, error: 'Cada origem de CORS_ORIGENS deve ser uma URL http(s)' }))
         .min(1, 'Informe ao menos uma origem em CORS_ORIGENS'),
     ),
+  // Duração fixa da sessão de login (sem renovação automática): de 1 hora a 7 dias.
+  SESSAO_HORAS: z.coerce.number().int().min(1).max(168).default(8),
+  // Pasta das fotos das ocorrências (fora do banco). Relativa à pasta server/.
+  UPLOADS_DIR: z.string().trim().min(1).default('uploads'),
 });
 
 export type Config = {
@@ -25,6 +33,8 @@ export type Config = {
   porta: number;
   databaseUrl: string;
   origensCors: string[];
+  sessaoHoras: number;
+  pastaUploads: string;
 };
 
 export class ErroConfiguracao extends Error {}
@@ -42,6 +52,8 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: dados.DATABASE_URL,
     // Origem sem barra final, como o navegador envia no cabeçalho Origin.
     origensCors: dados.CORS_ORIGENS.map((origem) => origem.replace(/\/+$/, '')),
+    sessaoHoras: dados.SESSAO_HORAS,
+    pastaUploads: path.resolve(PASTA_SERVER, dados.UPLOADS_DIR),
   };
 }
 
