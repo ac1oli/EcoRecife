@@ -9,12 +9,13 @@ const valida = (versao: string) =>
   `-- comentário\nBEGIN;\nCREATE TABLE t (id int);\nINSERT INTO schema_migrations (versao) VALUES ('${versao}');\nCOMMIT;\n`;
 
 describe('arquivos reais do projeto', () => {
-  it('as migrações 001–003 passam na validação, em ordem', async () => {
+  it('as migrações 001–004 passam na validação, em ordem', async () => {
     const migracoes = await lerArquivos(PASTA_MIGRACOES, true);
     expect(migracoes.map((m) => m.versao)).toEqual([
       '001_tipos_e_funcoes',
       '002_tabelas',
       '003_indices_e_gatilhos',
+      '004_sessoes',
     ]);
   });
 

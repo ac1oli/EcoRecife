@@ -1,43 +1,20 @@
 // Testes com um PostgreSQL de verdade. Só rodam se TEST_DATABASE_URL estiver definida
 // (ambiente ou server/.env). Cada cenário cria um banco temporário e o apaga no final;
-// o banco de DATABASE_URL nunca é usado aqui.
-import { randomBytes } from 'node:crypto';
+// as travas contra bancos que não são de teste ficam em test/apoio/banco-temporario.ts.
 import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { criarApp } from '../src/app.js';
 import { migrar, PASTA_MIGRACOES, semear } from '../src/banco/migrador.js';
-import { carregarArquivoEnv } from '../src/config.js';
-import { criarPool } from '../src/db.js';
 import { criarAdministrador, ErroDadosAdmin } from '../src/usuarios/administrador.js';
+import { criarBancoTemporario, URL_ADMIN } from './apoio/banco-temporario.js';
 
-carregarArquivoEnv();
-const URL_ADMIN = process.env.TEST_DATABASE_URL;
+// Estes testes não enviam fotos; a pasta existe só para completar a configuração.
+const SEM_UPLOAD = path.join(tmpdir(), 'ecorecife-testes-sem-upload');
 
-// Mesmo comando do guia (createdb -E UTF8 -T template0); o nome é gerado aqui, só [a-z0-9_].
-async function criarBancoTemporario(codificacao = 'UTF8') {
-  const nome = `ecorecife_teste_${randomBytes(4).toString('hex')}`;
-  const admin = new pg.Client({ connectionString: URL_ADMIN });
-  await admin.connect();
-  await admin.query(`CREATE DATABASE ${nome} ENCODING '${codificacao}' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`);
-  await admin.end();
-  const url = new URL(URL_ADMIN!);
-  url.pathname = `/${nome}`;
-  const pool = criarPool(url.toString());
-  return {
-    pool,
-    async apagar() {
-      await pool.end();
-      const cliente = new pg.Client({ connectionString: URL_ADMIN });
-      await cliente.connect();
-      await cliente.query(`DROP DATABASE IF EXISTS ${nome} WITH (FORCE)`);
-      await cliente.end();
-    },
-  };
-}
+const MIGRACOES = ['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos', '004_sessoes'];
 
 describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, () => {
   describe('banco novo: migrações, seed, saúde e administrador', () => {
@@ -47,23 +24,23 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
     });
     afterAll(() => banco?.apagar());
 
-    it('status em banco vazio lista as 3 migrações como pendentes e não altera nada', async () => {
+    it('status em banco vazio lista as 4 migrações como pendentes e não altera nada', async () => {
       const r = await migrar(banco.pool, { apenasVerificar: true });
       expect(r).toEqual({
         jaAplicadas: [],
-        pendentes: ['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos'],
+        pendentes: MIGRACOES,
         aplicadasAgora: [],
       });
       const { rows } = await banco.pool.query("SELECT to_regclass('schema_migrations') AS t");
       expect(rows[0].t).toBeNull();
     });
 
-    it('aplica as 3 migrações e a segunda execução não faz nada', async () => {
+    it('aplica as 4 migrações e a segunda execução não faz nada', async () => {
       const primeira = await migrar(banco.pool);
-      expect(primeira.aplicadasAgora).toEqual(['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos']);
+      expect(primeira.aplicadasAgora).toEqual(MIGRACOES);
       const segunda = await migrar(banco.pool);
       expect(segunda.aplicadasAgora).toEqual([]);
-      expect(segunda.jaAplicadas).toHaveLength(3);
+      expect(segunda.jaAplicadas).toEqual(MIGRACOES);
     });
 
     it('o seed carrega os dados demonstrativos e recusa uma segunda carga', async () => {
@@ -79,7 +56,8 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
     });
 
     it('/api/saude responde 200 com o banco real', async () => {
-      const resposta = await request(criarApp({ origensCors: [] }, banco.pool)).get('/api/saude');
+      const app = criarApp({ origensCors: [], ambiente: 'test', sessaoHoras: 8, pastaUploads: SEM_UPLOAD }, banco.pool);
+      const resposta = await request(app).get('/api/saude');
       expect(resposta.status).toBe(200);
       expect(resposta.body.banco).toBe('conectado');
     });
@@ -128,19 +106,19 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
 
     it('migração com erro é desfeita por inteiro e as anteriores continuam aplicadas', async () => {
       await writeFile(
-        path.join(pasta, '004_quebrada.sql'),
+        path.join(pasta, '005_quebrada.sql'),
         "BEGIN;\nCREATE TABLE parcial (id int);\nSELECT coluna_inexistente FROM parcial;\n" +
-          "INSERT INTO schema_migrations (versao) VALUES ('004_quebrada');\nCOMMIT;\n",
+          "INSERT INTO schema_migrations (versao) VALUES ('005_quebrada');\nCOMMIT;\n",
       );
-      await expect(migrar(banco.pool, { pasta })).rejects.toThrow(/004_quebrada.*Nada deste arquivo foi gravado/);
+      await expect(migrar(banco.pool, { pasta })).rejects.toThrow(/005_quebrada.*Nada deste arquivo foi gravado/);
       const { rows } = await banco.pool.query(
         "SELECT to_regclass('parcial') AS parcial, array_agg(versao ORDER BY versao) AS versoes FROM schema_migrations",
       );
       expect(rows[0].parcial).toBeNull();
-      expect(rows[0].versoes).toEqual(['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos']);
+      expect(rows[0].versoes).toEqual(MIGRACOES);
       // A conexão devolvida ao pool continua utilizável depois do ROLLBACK.
       expect((await banco.pool.query('SELECT 1 AS ok')).rows[0].ok).toBe(1);
-      await rm(path.join(pasta, '004_quebrada.sql'));
+      await rm(path.join(pasta, '005_quebrada.sql'));
     });
 
     it('recusa versão registrada no banco que não existe nos arquivos', async () => {
