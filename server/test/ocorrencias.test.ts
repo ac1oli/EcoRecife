@@ -6,6 +6,7 @@ import path from 'node:path';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarApp } from '../src/app.js';
+import { criarArmazenamentoDisco } from '../src/ocorrencias/fotos.js';
 import { LIMITE_FALHAS } from '../src/limite.js';
 import { GIF, JPEG, PNG, pngComTamanho, TEXTO, WEBP } from './apoio/imagens.js';
 
@@ -115,7 +116,7 @@ afterEach(async () => {
 });
 
 const app = (b = banco, pastaUploads = pasta) =>
-  criarApp({ origensCors: [ORIGEM], ambiente: 'test', sessaoHoras: 8, pastaUploads }, b as never);
+  criarApp({ origensCors: [ORIGEM], ambiente: 'test', sessaoHoras: 8, fotos: criarArmazenamentoDisco(pastaUploads) }, b as never);
 
 async function arquivosGravados(): Promise<string[]> {
   try {

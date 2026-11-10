@@ -5,14 +5,18 @@ import express from 'express';
 import helmet from 'helmet';
 import type { Config } from './config.js';
 import type { Banco } from './db.js';
+import type { Armazenamento } from './ocorrencias/fotos.js';
 import { rotaNaoEncontrada, tratarErros } from './erros.js';
 import { verificarOrigem } from './origem.js';
 import { rotasAuth } from './rotas/auth.js';
+import { rotasDeColeta, rotasVeiculos } from './rotas/coleta.js';
+import { rotasGestaoOcorrencias } from './rotas/gestao-ocorrencias.js';
 import { rotasOcorrencias } from './rotas/ocorrencias.js';
+import { rotasPontos } from './rotas/pontos.js';
 import { rotasSaude } from './rotas/saude.js';
 
 export function criarApp(
-  config: Pick<Config, 'origensCors' | 'ambiente' | 'sessaoHoras' | 'pastaUploads'>,
+  config: Pick<Config, 'origensCors' | 'ambiente' | 'sessaoHoras'> & { fotos: Armazenamento },
   banco: Pick<Banco, 'query' | 'connect'>,
 ) {
   const app = express();
@@ -31,8 +35,14 @@ export function criarApp(
 
   app.use('/api/saude', rotasSaude(banco));
   app.use('/api/auth', rotasAuth(banco, config));
-  app.use('/api/ocorrencias', rotasOcorrencias(banco, config));
-  // Próximas partes do CP2: gestão de ocorrências, /api/pontos, /api/veiculos, /api/rotas.
+  // Primeiro as rotas públicas (registro e protocolo); o que não casar com elas segue
+  // para as da gestão, todas protegidas por sessão e perfil.
+  app.use('/api/ocorrencias', rotasOcorrencias(banco, config.fotos));
+  app.use('/api/ocorrencias', rotasGestaoOcorrencias(banco, config, config.fotos));
+  app.use('/api/pontos', rotasPontos(banco, config));
+  // Coleta: leitura pública dos dados demonstrativos (a simulação vem na próxima etapa).
+  app.use('/api/veiculos', rotasVeiculos(banco));
+  app.use('/api/rotas', rotasDeColeta(banco));
 
   app.use(rotaNaoEncontrada);
   app.use(tratarErros);

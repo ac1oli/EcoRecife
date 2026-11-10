@@ -12,7 +12,9 @@ export async function executarComando(tarefa: (pool: pg.Pool) => Promise<void>):
   let pool: pg.Pool | undefined;
   try {
     carregarArquivoEnv();
-    pool = criarPool(carregarConfig().databaseUrl);
+    const config = carregarConfig();
+    console.log(`[db] Supabase · projeto ${config.projetoSupabase} (${config.ambiente})`);
+    pool = criarPool(config.databaseUrl, { certificadoCa: config.bancoCertificadoCa });
     await tarefa(pool);
   } catch (erro) {
     if (
@@ -22,12 +24,15 @@ export async function executarComando(tarefa: (pool: pg.Pool) => Promise<void>):
       erro instanceof ErroComando
     ) {
       console.error(`\nErro: ${erro.message}`);
-    } else if ((erro as { code?: string }).code === 'ECONNREFUSED') {
-      console.error('\nErro: não foi possível conectar ao PostgreSQL. Ele está rodando? Confira DATABASE_URL no .env.');
+    } else if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN'].includes((erro as { code?: string }).code ?? '')) {
+      console.error(
+        '\nErro: não foi possível conectar ao Supabase. Confira DATABASE_URL (Session pooler) e a internet. ' +
+          'No plano Free, um projeto pausado precisa ser reativado no painel.',
+      );
     } else if ((erro as { code?: string }).code === '28P01') {
       console.error('\nErro: usuário ou senha do banco recusados. Confira DATABASE_URL no .env.');
-    } else if ((erro as { code?: string }).code === '3D000') {
-      console.error('\nErro: o banco informado em DATABASE_URL não existe. Crie-o antes (veja docs/03-banco-de-dados.md).');
+    } else if (/certificate/i.test((erro as Error).message ?? '')) {
+      console.error('\nErro: o certificado TLS do Supabase não foi validado. Confira o arquivo de DATABASE_SSL_CA.');
     } else {
       console.error('\nErro inesperado:', erro);
     }

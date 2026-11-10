@@ -7,6 +7,7 @@ import express from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { criarApp } from '../src/app.js';
+import { criarArmazenamentoDisco } from '../src/ocorrencias/fotos.js';
 import { exigirPerfil, exigirSessao } from '../src/auth/middlewares.js';
 import { hashToken } from '../src/auth/sessoes.js';
 import { migrar } from '../src/banco/migrador.js';
@@ -18,7 +19,7 @@ import { criarBancoTemporario, URL_ADMIN } from './apoio/banco-temporario.js';
 const SEM_UPLOAD = path.join(tmpdir(), 'ecorecife-testes-sem-upload');
 
 const SENHA = 'frase longa de teste 2026';
-const config = { origensCors: ['http://localhost:5173'], ambiente: 'test' as const, sessaoHoras: 8, pastaUploads: SEM_UPLOAD };
+const config = { origensCors: ['http://localhost:5173'], ambiente: 'test' as const, sessaoHoras: 8, fotos: criarArmazenamentoDisco(SEM_UPLOAD) };
 
 function cookieDe(resposta: request.Response): string {
   const cabecalho = ([] as string[]).concat(resposta.headers['set-cookie'] ?? [])[0];

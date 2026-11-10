@@ -6,6 +6,7 @@ import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { criarApp } from '../src/app.js';
+import { criarArmazenamentoDisco } from '../src/ocorrencias/fotos.js';
 import { migrar, semear } from '../src/banco/migrador.js';
 import { criarBancoTemporario, URL_ADMIN } from './apoio/banco-temporario.js';
 import { JPEG, PNG } from './apoio/imagens.js';
@@ -34,7 +35,7 @@ describe.skipIf(!URL_ADMIN)('integração: ocorrências públicas', { timeout: 6
     await semear(banco.pool);
     pasta = await mkdtemp(path.join(tmpdir(), 'eco-fotos-int-'));
     app = criarApp(
-      { origensCors: ['http://localhost:5173'], ambiente: 'test', sessaoHoras: 8, pastaUploads: pasta },
+      { origensCors: ['http://localhost:5173'], ambiente: 'test', sessaoHoras: 8, fotos: criarArmazenamentoDisco(pasta) },
       banco.pool,
     );
   });

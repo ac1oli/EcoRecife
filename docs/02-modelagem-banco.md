@@ -1,14 +1,15 @@
 # 02 · Modelagem do banco de dados (PostgreSQL)
 
-Scripts: [`database/`](../database). Instalação e testes: [`03-banco-de-dados.md`](03-banco-de-dados.md).
+Scripts: [`database/`](../database). Instalação e testes: [`03-banco-de-dados.md`](03-banco-de-dados.md). Banco oficial: **PostgreSQL 17 do Supabase** (plano Free), desde 10/11/2026.
 
 ## 1. Decisões
 
 | Decisão | Justificativa |
 |---|---|
-| **PostgreSQL 14+ sem extensões** | Funciona em qualquer instalação padrão (Windows, Linux, macOS) e em qualquer hospedagem gerenciada. A equipe não precisa instalar nada além do PostgreSQL. |
+| **PostgreSQL 14+ sem extensões** | Funciona em qualquer PostgreSQL, inclusive no gerenciado do Supabase, que é o banco oficial. A equipe não instala banco: as migrações rodam pela API (`pnpm db:migrar`). |
 | **PostGIS não é usado nesta fase** | As consultas geográficas do escopo são os "3 pontos mais próximos" (dezenas de pontos) e os trajetos simulados. A função SQL `distancia_km` (fórmula de Haversine) resolve isso com precisão de metros, sem índice espacial. O PostGIS só passa a compensar com milhares de pontos ou com consultas de área (ex.: ocorrências dentro de um polígono). A migração seria simples: uma nova migração com uma coluna `geography` gerada a partir de `latitude`/`longitude` e um índice GiST. |
-| **Docker não é necessário** | Sem extensões, a instalação nativa do PostgreSQL basta, e muitas máquinas Windows não têm virtualização habilitada. Quem já usa Docker pode usar a imagem oficial `postgres:16` (ver doc 03). |
+| **Docker não é necessário** | O banco fica no Supabase, e os testes automatizados sobem um PostgreSQL descartável do pacote `embedded-postgres`. Nenhum dos dois precisa de Docker nem de PostgreSQL instalado. |
+| **Segurança no Supabase (migração 005)** | O Supabase publica o schema `public` pela Data API. Todas as tabelas têm RLS sem policies, e os papéis `anon`, `authenticated` e `service_role` não têm nenhum privilégio. Só a API, dona das tabelas, acessa os dados. As funções têm `search_path` fixo. |
 | Tipos `ENUM` com valores ASCII (`em_analise`) | São estáveis para a API; os rótulos em português ("Em análise") ficam na interface. |
 | Protocolo aleatório gerado no banco (`gerar_protocolo()`) | Formato `ECO-AAAA-XXXX-XXXX` com cerca de 1,1 trilhão de combinações, o que impede adivinhar o protocolo de terceiros. |
 | Cidadão anônimo | `ocorrencias` não tem nome, e-mail, telefone nem IP. O cidadão acompanha a ocorrência pelo protocolo. |
@@ -22,6 +23,7 @@ Scripts: [`database/`](../database). Instalação e testes: [`03-banco-de-dados.
 ```mermaid
 erDiagram
     usuarios ||--o{ ocorrencia_historico : "altera status"
+    usuarios ||--o{ sessoes : "faz login"
     categorias_ocorrencia ||--o{ ocorrencias : classifica
     bairros ||--o{ ocorrencias : localiza
     bairros ||--o{ pontos_descarte : localiza
@@ -41,6 +43,14 @@ erDiagram
         perfil_usuario perfil "admin | gestor"
         boolean ativo
         timestamptz ultimo_login_em
+    }
+    sessoes {
+        bigint id PK
+        bigint usuario_id FK
+        bytea token_hash UK "SHA-256 do token do cookie, nunca o token"
+        timestamptz criado_em
+        timestamptz expira_em
+        timestamptz ultimo_uso_em
     }
     bairros {
         int id PK
@@ -147,6 +157,8 @@ erDiagram
 | Excluir um usuário preserva o histórico (autor fica nulo) | `ON DELETE SET NULL` |
 | Dado "oficial" exige fonte | `CHECK (demonstrativo OR fonte IS NOT NULL)` |
 | `senha_hash` não aceita senha curta em texto puro | `CHECK (length >= 50)` (um hash bcrypt tem 60 caracteres) |
+| A sessão guarda só o SHA-256 do token (32 bytes) e expira depois de criada | `CHECK (octet_length(token_hash) = 32)` + `CHECK (expira_em > criado_em)` (migração 004) |
+| Excluir um usuário apaga as sessões dele | `ON DELETE CASCADE` |
 
 **Transições de status** (serão validadas na API, CP2, e cada uma gera uma linha no histórico):
 
@@ -171,6 +183,7 @@ Ficam de fora: descrição, endereço exato, coordenadas, fotos, prioridade, obs
 | `ocorrencia_historico (ocorrencia_id, criado_em)` | Linha do tempo |
 | `pontos_descarte (tipo) WHERE ativo`, `ponto_materiais (material_id)` | Filtros do guia de reciclagem |
 | `usuarios (lower(email))` único | Login sem diferenciar maiúsculas |
+| `sessoes (token_hash)` único, `(usuario_id)`, `(expira_em)` | Validação da sessão a cada requisição, logout e limpeza das expiradas |
 | PK/UNIQUE (protocolo, slugs, códigos) | Buscas diretas |
 
 ## 6. Dicionário de status e prioridades (banco → interface)

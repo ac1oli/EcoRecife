@@ -1,8 +1,7 @@
 // Registro de ocorrências pelo cidadão (anônimo) e consulta pública por protocolo.
 // Campos e regras seguem a tabela ocorrencias (migração 002) e o docs/02, seção 4.
-import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import type { Banco } from '../db.js';
+import { emTransacao, type Banco } from '../db.js';
 import { ErroHttp } from '../erros.js';
 import type { Armazenamento, FotoValidada } from './fotos.js';
 
@@ -57,8 +56,6 @@ export type DadosOcorrencia = z.infer<typeof esquemaOcorrencia>;
 
 export type OcorrenciaCriada = { protocolo: string; status: string; criadoEm: Date };
 
-type Cliente = Pick<PoolClient, 'query' | 'release'>;
-
 // Grava ocorrência, primeira linha do histórico e fotos numa única transação.
 // Se qualquer passo falhar: ROLLBACK e apagamento dos arquivos já gravados (sem órfãos).
 async function registrar(
@@ -67,64 +64,56 @@ async function registrar(
   dados: DadosOcorrencia,
   fotos: FotoValidada[],
 ): Promise<OcorrenciaCriada> {
-  const cliente: Cliente = await banco.connect();
   const chavesGravadas: string[] = [];
-  let conexaoQuebrada: Error | undefined;
   try {
-    await cliente.query('BEGIN');
-    const { rows: referencias } = await cliente.query<{ categoria_id: number | null; bairro_id: number | null }>(
-      `SELECT (SELECT id FROM categorias_ocorrencia WHERE slug = $1 AND ativo) AS categoria_id,
-              (SELECT id FROM bairros WHERE lower(nome) = lower($2) ORDER BY id LIMIT 1) AS bairro_id`,
-      [dados.categoria, dados.bairro],
-    );
-    const { categoria_id: categoriaId, bairro_id: bairroId } = referencias[0] ?? {};
-    if (!categoriaId) throw new ErroHttp(400, 'Categoria inválida');
-    if (!bairroId) throw new ErroHttp(400, 'Bairro não encontrado. Escolha um bairro da lista.');
-
-    const { rows } = await cliente.query<{ id: string; protocolo: string; status: string; criado_em: Date }>(
-      `INSERT INTO ocorrencias
-         (categoria_id, bairro_id, endereco, descricao, latitude, longitude, origem_localizacao, precisao_m)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, protocolo, status, criado_em`,
-      [
-        categoriaId,
-        bairroId,
-        dados.endereco,
-        dados.descricao,
-        dados.latitude ?? null,
-        dados.longitude ?? null,
-        dados.origemLocalizacao ?? null,
-        dados.precisaoMetros ?? null,
-      ],
-    );
-    const ocorrencia = rows[0]!;
-    // Registro do cidadão: sem status anterior e sem usuário.
-    await cliente.query(
-      `INSERT INTO ocorrencia_historico (ocorrencia_id, status_anterior, status_novo) VALUES ($1, NULL, $2)`,
-      [ocorrencia.id, ocorrencia.status],
-    );
-    for (const [indice, foto] of fotos.entries()) {
-      const chave = armazenamento.novaChave(foto.tipoMime);
-      chavesGravadas.push(chave); // antes de gravar: um arquivo parcial também é apagado
-      await armazenamento.gravar(chave, foto.conteudo);
-      await cliente.query(
-        `INSERT INTO ocorrencia_fotos (ocorrencia_id, ordem, chave_armazenamento, tipo_mime, tamanho_bytes)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [ocorrencia.id, indice + 1, chave, foto.tipoMime, foto.tamanhoBytes],
+    return await emTransacao(banco, async (cliente) => {
+      const { rows: referencias } = await cliente.query<{ categoria_id: number | null; bairro_id: number | null }>(
+        `SELECT (SELECT id FROM categorias_ocorrencia WHERE slug = $1 AND ativo) AS categoria_id,
+                (SELECT id FROM bairros WHERE lower(nome) = lower($2) ORDER BY id LIMIT 1) AS bairro_id`,
+        [dados.categoria, dados.bairro],
       );
-    }
-    await cliente.query('COMMIT');
-    return { protocolo: ocorrencia.protocolo, status: ocorrencia.status, criadoEm: ocorrencia.criado_em };
+      const { categoria_id: categoriaId, bairro_id: bairroId } = referencias[0] ?? {};
+      if (!categoriaId) throw new ErroHttp(400, 'Categoria inválida');
+      if (!bairroId) throw new ErroHttp(400, 'Bairro não encontrado. Escolha um bairro da lista.');
+
+      const { rows } = await cliente.query<{ id: string; protocolo: string; status: string; criado_em: Date }>(
+        `INSERT INTO ocorrencias
+           (categoria_id, bairro_id, endereco, descricao, latitude, longitude, origem_localizacao, precisao_m)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, protocolo, status, criado_em`,
+        [
+          categoriaId,
+          bairroId,
+          dados.endereco,
+          dados.descricao,
+          dados.latitude ?? null,
+          dados.longitude ?? null,
+          dados.origemLocalizacao ?? null,
+          dados.precisaoMetros ?? null,
+        ],
+      );
+      const ocorrencia = rows[0]!;
+      // Registro do cidadão: sem status anterior e sem usuário.
+      await cliente.query(
+        `INSERT INTO ocorrencia_historico (ocorrencia_id, status_anterior, status_novo) VALUES ($1, NULL, $2)`,
+        [ocorrencia.id, ocorrencia.status],
+      );
+      for (const [indice, foto] of fotos.entries()) {
+        const chave = armazenamento.novaChave(foto.tipoMime);
+        chavesGravadas.push(chave); // antes de gravar: um arquivo parcial também é apagado
+        await armazenamento.gravar(chave, foto.conteudo, foto.tipoMime);
+        await cliente.query(
+          `INSERT INTO ocorrencia_fotos (ocorrencia_id, ordem, chave_armazenamento, tipo_mime, tamanho_bytes)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [ocorrencia.id, indice + 1, chave, foto.tipoMime, foto.tamanhoBytes],
+        );
+      }
+      return { protocolo: ocorrencia.protocolo, status: ocorrencia.status, criadoEm: ocorrencia.criado_em };
+    });
   } catch (erro) {
-    try {
-      await cliente.query('ROLLBACK');
-    } catch (erroRollback) {
-      conexaoQuebrada = erroRollback as Error; // conexão inutilizável: descartar em vez de devolver ao pool
-    }
+    // A transação já foi desfeita; falta apagar os arquivos gravados nela.
     await Promise.all(chavesGravadas.map((chave) => armazenamento.apagar(chave)));
     throw erro;
-  } finally {
-    cliente.release(conexaoQuebrada);
   }
 }
 
