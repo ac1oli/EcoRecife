@@ -1,6 +1,6 @@
-// Executor das migrações e dos seeds de database/. Reaproveita os mesmos arquivos SQL
-// usados por database/instalar.sql (nada é duplicado) e a tabela schema_migrations,
-// em que cada migração registra a própria versão dentro da sua transação.
+// Executor das migrações e dos seeds de database/ (no Supabase, pelo pooler de sessão). Usa a
+// tabela schema_migrations, em que cada migração registra a própria versão dentro da sua
+// transação. É o único caminho de instalação: não precisa de psql nem de PostgreSQL local.
 //
 // Garantias:
 // - valida todos os arquivos ANTES de conectar (nome, BEGIN/COMMIT únicos, autorregistro,
@@ -135,13 +135,13 @@ async function esquemaPublicoVazio(cliente: Cliente): Promise<boolean> {
 
 // Compara o banco com os arquivos e devolve o que falta, recusando estados inconsistentes.
 async function planejar(cliente: Cliente, migracoes: ArquivoSql[]) {
-  // Os arquivos SQL têm acentos e símbolos UTF-8. No Windows, o banco criado sem
-  // "-E UTF8 -T template0" costuma vir em WIN1252 e falharia no meio da instalação.
+  // Os arquivos SQL têm acentos e símbolos UTF-8: um banco em outra codificação (ex.: WIN1252)
+  // falharia no meio da instalação. O Supabase já usa UTF8.
   const { rows: codificacao } = await cliente.query<{ server_encoding: string }>('SHOW server_encoding');
   if (codificacao[0]?.server_encoding !== 'UTF8') {
     throw new ErroMigracao(
       `O banco usa a codificação ${codificacao[0]?.server_encoding}, mas o EcoRecife exige UTF8. ` +
-        'Recrie-o com: createdb -U postgres -E UTF8 -T template0 ecorecife',
+        'Use um banco UTF-8 (o padrão do Supabase).',
     );
   }
   const registradas = await versoesRegistradas(cliente);
@@ -219,5 +219,46 @@ export async function semear(
       await executarArquivo(cliente, seed, 'no seed');
     }
     return seeds.map((s) => s.versao);
+  });
+}
+
+// Seed das rotas demonstrativas (docs/04, "Seeds de rotas"). Num banco novo ele já entra
+// pelo semear(), junto com o 001; este caminho existe para bancos JÁ instalados, que o
+// semear() recusa. O próprio arquivo decide, antes de gravar, entre carregar, não fazer
+// nada (rotas já iguais) ou interromper (carga parcial, rota alterada ou veículo com
+// outra rota). Nunca apaga nem altera rotas existentes.
+export const ARQUIVO_SEED_ROTAS = path.join(PASTA_SEEDS, '002_rotas_demonstrativas.sql');
+
+export type ResultadoSeedRotas = { situacao: 'carregadas' | 'ja_carregadas'; rotas: number; pontos: number };
+
+export async function semearRotas(
+  pool: Pool,
+  opcoes: { pastaMigracoes?: string; arquivo?: string; log?: (mensagem: string) => void } = {},
+): Promise<ResultadoSeedRotas> {
+  const { pastaMigracoes = PASTA_MIGRACOES, arquivo = ARQUIVO_SEED_ROTAS, log = () => {} } = opcoes;
+  const migracoes = await lerArquivos(pastaMigracoes, true);
+  const nome = path.basename(arquivo);
+  const seed = { versao: nome.replace(/\.sql$/i, ''), arquivo: nome, sql: await readFile(arquivo, 'utf8') };
+  validarArquivo(seed, false);
+  return comTrava(pool, async (cliente) => {
+    const { pendentes } = await planejar(cliente, migracoes);
+    if (pendentes.length > 0) {
+      throw new ErroMigracao(`Há migrações pendentes (${pendentes.map((m) => m.versao).join(', ')}). Rode pnpm db:migrar antes.`);
+    }
+    const contarRotas = async () =>
+      (await cliente.query<{ n: number }>('SELECT count(*)::int AS n FROM rotas')).rows[0]?.n ?? 0;
+    const antes = await contarRotas();
+    log(`aplicando ${seed.arquivo}...`);
+    await executarArquivo(cliente, seed, 'no seed');
+    const { rows } = await cliente.query<{ rotas: number; pontos: number }>(
+      `SELECT count(DISTINCT r.id)::int AS rotas, count(rp.*)::int AS pontos
+         FROM rotas r LEFT JOIN rota_pontos rp ON rp.rota_id = r.id
+        WHERE r.demonstrativo AND r.nome LIKE 'Rota demonstrativa %'`,
+    );
+    return {
+      situacao: (await contarRotas()) > antes ? 'carregadas' : 'ja_carregadas',
+      rotas: rows[0]?.rotas ?? 0,
+      pontos: rows[0]?.pontos ?? 0,
+    };
   });
 }

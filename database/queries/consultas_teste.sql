@@ -1,6 +1,7 @@
 -- =============================================================================
 -- EcoRecife · Consultas de teste (somente leitura)
--- Uso: psql -U postgres -d ecorecife -f queries/consultas_teste.sql
+-- Uso (opcional, só para quem tiver o psql): psql "<DATABASE_URL do Supabase>" -f queries/consultas_teste.sql
+-- O sistema não depende deste arquivo; a API e os testes automatizados cobrem as mesmas consultas.
 -- Os resultados esperados com os dados demonstrativos estão em docs/03-banco-de-dados.md.
 -- Parâmetros como :'protocolo' e :lat/:lng mostram como a API passará valores
 -- (consultas parametrizadas; nunca concatenar texto do usuário em SQL).

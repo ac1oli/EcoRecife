@@ -1,8 +1,12 @@
 // Bancos temporários para os testes de integração. TEST_DATABASE_URL é usada só para
 // CREATE DATABASE e DROP DATABASE de bancos criados aqui; os testes rodam dentro deles.
 //
+// TEST_DATABASE_URL vem do .env (ex.: CI) ou do PostgreSQL descartável que
+// ./postgres-de-teste.ts sobe para a suíte.
+//
 // Travas contra mexer em banco que não é de teste:
 // - recusa NODE_ENV=production;
+// - recusa qualquer host do Supabase (o banco oficial nunca é usado pelos testes);
 // - recusa TEST_DATABASE_URL apontando para o mesmo banco de DATABASE_URL;
 // - só cria e só apaga nomes no formato ecorecife_teste_<8 hex>, gerados aqui;
 // - antes de devolver o pool, confere que current_database() é o banco temporário.
@@ -31,6 +35,9 @@ export function verificarAmbienteDeTeste(env: NodeJS.ProcessEnv = process.env): 
   const urlAdmin = env.TEST_DATABASE_URL;
   if (!urlAdmin) throw new Error('TEST_DATABASE_URL não definida');
   if (env.NODE_ENV === 'production') throw new Error('Recusado: testes de integração com NODE_ENV=production');
+  if (/(^|\.)supabase\.(co|com)$/i.test(new URL(urlAdmin).hostname)) {
+    throw new Error('Recusado: TEST_DATABASE_URL aponta para o Supabase; os testes usam só um PostgreSQL descartável');
+  }
   if (env.DATABASE_URL && destino(env.DATABASE_URL) === destino(urlAdmin)) {
     throw new Error('Recusado: TEST_DATABASE_URL aponta para o mesmo banco de DATABASE_URL');
   }
@@ -47,7 +54,7 @@ async function comConexaoAdmin(urlAdmin: string, tarefa: (cliente: pg.Client) =>
   }
 }
 
-// Mesmo comando do guia (createdb -E UTF8 -T template0); o nome é gerado aqui, só [a-z0-9_].
+// UTF8 a partir do template0 (como o Supabase); o nome é gerado aqui, só [a-z0-9_].
 export async function criarBancoTemporario(codificacao: 'UTF8' | 'LATIN1' = 'UTF8') {
   const urlAdmin = verificarAmbienteDeTeste();
   const nome = `ecorecife_teste_${randomBytes(4).toString('hex')}`;

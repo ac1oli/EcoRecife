@@ -1,11 +1,10 @@
 // /api/ocorrencias: rotas públicas da Zeladoria Cidadã (cidadão anônimo, sem login).
-// As rotas da gestão (listagem, status, fotos) virão na parte 4, com exigirSessao/exigirPerfil.
+// As rotas da gestão (listagem, status, fotos) estão em ./gestao-ocorrencias.ts.
 import { Router } from 'express';
-import type { Config } from '../config.js';
 import type { Banco } from '../db.js';
 import { ErroHttp } from '../erros.js';
 import { limitarFalhas } from '../limite.js';
-import { criarArmazenamento, receberFormulario, validarFotos } from '../ocorrencias/fotos.js';
+import { receberFormulario, validarFotos, type Armazenamento } from '../ocorrencias/fotos.js';
 import {
   consultarProtocolo,
   esquemaOcorrencia,
@@ -13,9 +12,8 @@ import {
   registrarOcorrencia,
 } from '../ocorrencias/ocorrencias.js';
 
-export function rotasOcorrencias(banco: Pick<Banco, 'query' | 'connect'>, config: Pick<Config, 'pastaUploads'>): Router {
+export function rotasOcorrencias(banco: Pick<Banco, 'query' | 'connect'>, armazenamento: Armazenamento): Router {
   const rotas = Router();
-  const armazenamento = criarArmazenamento(config.pastaUploads);
   // Contra varredura de protocolos: mesmo limite do login (falhas por IP, em memória).
   const limitarConsulta = limitarFalhas('Muitas consultas de protocolo sem sucesso. Tente novamente em alguns minutos.');
 

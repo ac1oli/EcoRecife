@@ -2,7 +2,7 @@
 -- EcoRecife · Verificação automática das restrições do banco
 -- Cada caso tenta gravar um dado inválido e falha o script se o banco aceitar.
 -- Tudo roda em uma transação desfeita no final (ROLLBACK): nada é gravado.
--- Uso: psql -U postgres -d ecorecife -f queries/verificar_restricoes.sql
+-- Uso: pnpm db:verificar --restricoes (na pasta server/; roda este arquivo sem o psql).
 -- Resultado esperado: "OK" para cada caso e a mensagem final de sucesso.
 -- =============================================================================
 \set ON_ERROR_STOP on

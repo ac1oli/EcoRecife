@@ -7,6 +7,7 @@ import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { criarApp } from '../src/app.js';
+import { criarArmazenamentoDisco } from '../src/ocorrencias/fotos.js';
 import { migrar, PASTA_MIGRACOES, semear } from '../src/banco/migrador.js';
 import { criarAdministrador, ErroDadosAdmin } from '../src/usuarios/administrador.js';
 import { criarBancoTemporario, URL_ADMIN } from './apoio/banco-temporario.js';
@@ -14,7 +15,7 @@ import { criarBancoTemporario, URL_ADMIN } from './apoio/banco-temporario.js';
 // Estes testes não enviam fotos; a pasta existe só para completar a configuração.
 const SEM_UPLOAD = path.join(tmpdir(), 'ecorecife-testes-sem-upload');
 
-const MIGRACOES = ['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos', '004_sessoes'];
+const MIGRACOES = ['001_tipos_e_funcoes', '002_tabelas', '003_indices_e_gatilhos', '004_sessoes', '005_seguranca'];
 
 describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, () => {
   describe('banco novo: migrações, seed, saúde e administrador', () => {
@@ -24,7 +25,7 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
     });
     afterAll(() => banco?.apagar());
 
-    it('status em banco vazio lista as 4 migrações como pendentes e não altera nada', async () => {
+    it('status em banco vazio lista as 5 migrações como pendentes e não altera nada', async () => {
       const r = await migrar(banco.pool, { apenasVerificar: true });
       expect(r).toEqual({
         jaAplicadas: [],
@@ -35,7 +36,7 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
       expect(rows[0].t).toBeNull();
     });
 
-    it('aplica as 4 migrações e a segunda execução não faz nada', async () => {
+    it('aplica as 5 migrações e a segunda execução não faz nada', async () => {
       const primeira = await migrar(banco.pool);
       expect(primeira.aplicadasAgora).toEqual(MIGRACOES);
       const segunda = await migrar(banco.pool);
@@ -44,19 +45,21 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
     });
 
     it('o seed carrega os dados demonstrativos e recusa uma segunda carga', async () => {
-      expect(await semear(banco.pool)).toEqual(['001_dados_demonstrativos']);
+      expect(await semear(banco.pool)).toEqual(['001_dados_demonstrativos', '002_rotas_demonstrativas']);
       const { rows } = await banco.pool.query(
         'SELECT count(*)::int AS total, bool_and(demonstrativo) AS todos FROM pontos_descarte',
       );
       expect(rows[0].total).toBeGreaterThan(0);
       expect(rows[0].todos).toBe(true);
+      // Banco novo: o seed 002 já traz as 7 rotas demonstrativas.
+      expect((await banco.pool.query('SELECT count(*)::int AS n FROM rotas WHERE demonstrativo')).rows[0].n).toBe(7);
       const antes = (await banco.pool.query('SELECT count(*)::int AS n FROM bairros')).rows[0].n;
       await expect(semear(banco.pool)).rejects.toThrow(/já tem dados/);
       expect((await banco.pool.query('SELECT count(*)::int AS n FROM bairros')).rows[0].n).toBe(antes);
     });
 
     it('/api/saude responde 200 com o banco real', async () => {
-      const app = criarApp({ origensCors: [], ambiente: 'test', sessaoHoras: 8, pastaUploads: SEM_UPLOAD }, banco.pool);
+      const app = criarApp({ origensCors: [], ambiente: 'test', sessaoHoras: 8, fotos: criarArmazenamentoDisco(SEM_UPLOAD) }, banco.pool);
       const resposta = await request(app).get('/api/saude');
       expect(resposta.status).toBe(200);
       expect(resposta.body.banco).toBe('conectado');
@@ -106,11 +109,11 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
 
     it('migração com erro é desfeita por inteiro e as anteriores continuam aplicadas', async () => {
       await writeFile(
-        path.join(pasta, '005_quebrada.sql'),
+        path.join(pasta, '006_quebrada.sql'),
         "BEGIN;\nCREATE TABLE parcial (id int);\nSELECT coluna_inexistente FROM parcial;\n" +
-          "INSERT INTO schema_migrations (versao) VALUES ('005_quebrada');\nCOMMIT;\n",
+          "INSERT INTO schema_migrations (versao) VALUES ('006_quebrada');\nCOMMIT;\n",
       );
-      await expect(migrar(banco.pool, { pasta })).rejects.toThrow(/005_quebrada.*Nada deste arquivo foi gravado/);
+      await expect(migrar(banco.pool, { pasta })).rejects.toThrow(/006_quebrada.*Nada deste arquivo foi gravado/);
       const { rows } = await banco.pool.query(
         "SELECT to_regclass('parcial') AS parcial, array_agg(versao ORDER BY versao) AS versoes FROM schema_migrations",
       );
@@ -118,7 +121,7 @@ describe.skipIf(!URL_ADMIN)('integração com PostgreSQL', { timeout: 60_000 }, 
       expect(rows[0].versoes).toEqual(MIGRACOES);
       // A conexão devolvida ao pool continua utilizável depois do ROLLBACK.
       expect((await banco.pool.query('SELECT 1 AS ok')).rows[0].ok).toBe(1);
-      await rm(path.join(pasta, '005_quebrada.sql'));
+      await rm(path.join(pasta, '006_quebrada.sql'));
     });
 
     it('recusa versão registrada no banco que não existe nos arquivos', async () => {

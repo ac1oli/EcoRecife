@@ -24,14 +24,17 @@ Estrutura: `server/` (Node 22 + TypeScript + Express). Guia: [06-api.md](06-api.
 |---|---|---|
 | ✅ Base da API (parte 1) | `config` (variáveis de ambiente validadas), `db` (pool `pg`), tratamento de erros, `helmet`, CORS restrito | `GET /api/saude` responde e consulta o banco |
 | ✅ Executor de migrações (parte 1) | Script Node que aplica `database/migrations` ainda não registradas em `schema_migrations` | Banco novo criado só pelo script |
-| Autenticação | `POST /api/auth/login` (bcrypt), sessão em cookie `httpOnly`, limite de tentativas, `GET /api/auth/eu`, logout | Rotas protegidas retornam 401/403 corretamente |
-| ⏳ Primeiro administrador (comando pronto na parte 1; o login será verificado na parte 2) | Comando `pnpm criar-admin` que pede e-mail e senha no terminal (nada fica no código) | Login funciona com o usuário criado |
-| Ocorrências (público) | `POST /api/ocorrencias` (multipart, até 3 fotos validadas pelo conteúdo), `GET /api/ocorrencias/protocolo/:protocolo` (só campos públicos, com limite de tentativas) | Protocolo retornado e consultável |
-| Ocorrências (gestão) | Listagem paginada com filtros, detalhe, `PATCH` de status/prioridade com transições validadas e histórico, conclusão, reabertura, fotos protegidas | Testes de permissão passando |
-| Guia de reciclagem | `GET /api/pontos` (filtros por tipo e material), `GET /api/pontos/proximos?lat&lng&limite=3`, CRUD para admin | Resultados iguais aos de `consultas_teste.sql` |
-| Coleta | `GET /api/veiculos`, `GET /api/rotas`; simulação Socket.IO percorrendo `rota_pontos` | Posições emitidas a cada poucos segundos |
-| Seeds de rotas | Trajetos coerentes sobre ruas reais (desenhados manualmente ou gerados uma vez e versionados), marcados como demonstrativos | Rota visível e coerente no mapa |
+| ✅ Autenticação (parte 2) | `POST /api/auth/login` (bcrypt), sessão em cookie `httpOnly` (tabela `sessoes`, migração 004), limite de tentativas, `GET /api/auth/eu`, logout, `exigirSessao`/`exigirPerfil`, verificação de `Origin` contra CSRF | Rotas protegidas retornam 401/403 corretamente (testado com banco falso e com PostgreSQL 16.15) |
+| ✅ Primeiro administrador | Comando `pnpm criar-admin` que pede e-mail e senha no terminal (nada fica no código) | Login funciona com o usuário criado (testado com a mesma função de gravação do comando; a digitação interativa ainda depende da equipe 👤) |
+| ✅ Ocorrências (público, parte 3) | `POST /api/ocorrencias` (multipart, até 3 fotos validadas pelo conteúdo, gravadas fora do banco em transação sem órfãos), `GET /api/ocorrencias/protocolo/:protocolo` (só campos públicos, com limite de tentativas) | Protocolo retornado e consultável (testado com banco falso e com PostgreSQL) |
+| ✅ Ocorrências (gestão, parte 4) | Listagem paginada com filtros, detalhe, `PATCH` de status/prioridade com transições validadas e histórico, conclusão, reabertura, fotos protegidas | Testes de permissão passando (cada rota: 401 sem sessão e 403 com perfil fora da lista; testado com banco falso e com PostgreSQL) |
+| ✅ Guia de reciclagem (parte 5) | `GET /api/pontos` (filtros por tipo e material), `GET /api/pontos/proximos?lat&lng&limite=3`, CRUD para admin (o `DELETE` desativa) | Resultados iguais aos de `consultas_teste.sql` (consultas 2 a 4 conferidas no PostgreSQL; rotas do admin com 401/403 testadas) |
+| ✅ Coleta, etapa B: leitura | `GET /api/veiculos`, `GET /api/rotas` públicos, só ativos, com `demonstrativo` | Respostas iguais aos seeds 001 e 002 (testado com banco falso e com PostgreSQL) |
+| ✅ Coleta, etapa C: motor da simulação | Funções puras percorrendo os pontos de `GET /api/rotas` (a cada 3 s, suavizada, recomeçando no fim, posições só em memória) | Testado com relógio falso e sobre as 7 rotas do seed 002, sem saltos nem valores inválidos |
+| ✅ Coleta, etapa D: transmissão | Socket.IO (`coleta:posicoes`) emitindo as posições do motor, só leitura, origem conferida, `SIMULACAO_ATIVA` e `SIMULACAO_INTERVALO_MS` | Posições emitidas a cada 3 s (testado com clientes reais e relógio falso) |
+| ✅ Seeds de rotas (coleta, etapa A) | Trajetos coerentes sobre ruas reais (gerados uma vez com o OSRM sobre o OpenStreetMap e versionados no seed 002), marcados como demonstrativos; `pnpm db:seed-rotas` para bancos já instalados | Rota visível e coerente no mapa (dados conferidos por testes; a conferência visual fica com a equipe 👤) |
 | Testes e documentação | vitest + supertest com um banco de teste; `docs/06-api.md` | `pnpm test` verde |
+| ✅ Migração para o Supabase (10/11/2026) | Banco oficial no Supabase (Session pooler, TLS verificado), migração 005 de segurança (RLS, sem privilégios para a Data API), fotos no Supabase Storage (bucket privado), `db:verificar`, `db:backup`/`db:restaurar`, testes num PostgreSQL descartável (`embedded-postgres`) | Dados idênticos ao banco local (contagens, ids, sequências e MD5 por tabela), Data API com 401 nas 14 tabelas, 467 testes e 42 verificações ponta a ponta contra o Supabase |
 
 ## Checkpoint 3: 27/11/2026 (MVP integrado)
 
@@ -61,7 +64,7 @@ Implantação na nuvem (somente com autorização: serviços e custos serão apr
 
 ## Pendências e dúvidas registradas
 
-- **Rotas dos caminhões:** a tabela existe, mas os trajetos ainda não foram cadastrados (CP2).
+- **Rotas dos caminhões:** 7 rotas demonstrativas no seed 002 (OpenStreetMap via OSRM, `docs/03`, seção 5.1). Não são os roteiros da Emlurb; se a equipe obtiver roteiros oficiais, eles exigem `fonte`.
 - **Dados oficiais de ecopontos:** se a equipe obtiver uma fonte da Prefeitura/Emlurb, cadastrar com `demonstrativo = false` e `fonte`.
 - **Indicadores da página inicial** (18/24/12/94%): no CP3, trocar por contagens da API ou manter rotulados como demonstrativos.
 - **Bairros:** o seed tem 16 dos 94 bairros oficiais (os do protótipo). Ampliar exige uma fonte de coordenadas.

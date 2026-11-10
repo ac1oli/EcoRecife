@@ -21,6 +21,14 @@ describe('verificarAmbienteDeTeste', () => {
     );
   });
 
+  it.each([
+    'postgresql://postgres.abcdefghijklmnopqrst:x@aws-0-sa-east-1.pooler.supabase.com:5432/postgres',
+    'postgresql://postgres:x@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+    'postgresql://postgres:x@DB.ABCDEFGHIJKLMNOPQRST.SUPABASE.CO:5432/postgres',
+  ])('recusa TEST_DATABASE_URL no Supabase (%s)', (url) => {
+    expect(() => verificarAmbienteDeTeste({ TEST_DATABASE_URL: url })).toThrow(/Supabase/);
+  });
+
   it('recusa a ausência de TEST_DATABASE_URL', () => {
     expect(() => verificarAmbienteDeTeste({})).toThrow(/TEST_DATABASE_URL/);
   });

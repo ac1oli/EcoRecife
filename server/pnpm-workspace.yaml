@@ -1,2 +1,8 @@
 allowBuilds:
   esbuild: true
+  # embedded-postgres (só nos testes): o postinstall apenas recria links simbólicos das
+  # bibliotecas do PostgreSQL (lista vazia no Windows, necessária no Linux e no macOS).
+  '@embedded-postgres/windows-x64': true
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/darwin-x64': true
+  '@embedded-postgres/darwin-arm64': true

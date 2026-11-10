@@ -7,6 +7,7 @@ import express from 'express';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarApp } from '../src/app.js';
+import { criarArmazenamentoDisco } from '../src/ocorrencias/fotos.js';
 import { lerCookie } from '../src/auth/cookies.js';
 import { exigirPerfil, exigirSessao } from '../src/auth/middlewares.js';
 import { hashToken } from '../src/auth/sessoes.js';
@@ -60,7 +61,7 @@ function criarBancoFalso() {
 }
 
 let banco: ReturnType<typeof criarBancoFalso>;
-const config = { origensCors: [ORIGEM], ambiente: 'test' as const, sessaoHoras: 8, pastaUploads: SEM_UPLOAD };
+const config = { origensCors: [ORIGEM], ambiente: 'test' as const, sessaoHoras: 8, fotos: criarArmazenamentoDisco(SEM_UPLOAD) };
 const app = () => criarApp(config, banco as never);
 
 beforeEach(() => {
