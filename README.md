@@ -36,3 +36,12 @@ Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 5. [Execução local do front](docs/05-execucao-local.md)
 6. [API: instalação, comandos e endpoints](docs/06-api.md)
 7. [Resumo de continuidade](docs/CONTINUIDADE.md)
+
+
+
+## Participantes do Desenvolvimento do sistema e cargo de cada um no projeto:
+
+|Alexsandro Acioli - 01831915| DESENVOLVEDOR BACK-END|
+|João Batista - 01924256| DESENVOLVER FRONT-END |
+|Talles Eduardo - 01932648|DESENVOLVEDOR FRONT-END|
+|João Vitor - 01925622|DESENVOLVEDOR FRONT-END|
