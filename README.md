@@ -4,7 +4,7 @@ Plataforma de gestão digital de resíduos sólidos urbanos do Recife: acompanha
 
 Projeto acadêmico da disciplina *Desenvolvimento de aplicações para internet* (UNINASSAU, 2026.2, turma 2NA/Noite), no Banco de Oportunidades da Prefeitura do Recife (AV2: implementação).
 
-**Equipe:** João Batista de Oliveira · Gabriel Silvestre Gomes · Talles Eduardo Barbosa de Oliveira e Silva · João Vitor da Silva Vieira · Alexsandro Acioli Pimentel Filho.
+**Equipe:** João Batista de Oliveira · Talles Eduardo Barbosa de Oliveira e Silva · João Vitor da Silva Vieira · Alexsandro Acioli Pimentel Filho.
 
 > **Aviso sobre os dados:** posições de caminhões, ecopontos, cooperativas e ocorrências de exemplo são **demonstrativas**. Não há integração com a frota ou com sistemas da Prefeitura do Recife.
 
@@ -38,3 +38,4 @@ Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 6. [API: instalação, comandos e endpoints](docs/06-api.md)
 7. [Implantação (hospedar o site e a API)](docs/07-implantacao.md)
 8. [Resumo de continuidade](docs/CONTINUIDADE.md)
+
