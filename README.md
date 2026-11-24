@@ -39,3 +39,14 @@ Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 7. [Implantação (hospedar o site e a API)](docs/07-implantacao.md)
 8. [Resumo de continuidade](docs/CONTINUIDADE.md)
 
+
+
+## Participantes do Desenvolvimento do sistema e cargo de cada um no projeto:
+
+| Nome | Cargo|
+|---|---|
+|Alexsandro Acioli - 01831915| DESENVOLVEDOR BACK-END|
+|João Batista - 01924256| DESENVOLVER FRONT-END |
+|Talles Eduardo - 01932648|DESENVOLVEDOR FRONT-END|
+|João Vitor - 01925622|DESENVOLVEDOR FRONT-END|
+
