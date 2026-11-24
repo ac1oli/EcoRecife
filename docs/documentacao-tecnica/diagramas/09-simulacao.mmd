@@ -1,0 +1,13 @@
+flowchart TB
+  A([API inicia]) --> B{SIMULACAO_ATIVA?}
+  B -- false --> Z[Sem simulação e sem Socket.IO]
+  B -- true --> C
+  subgraph P["Preparação (uma vez)"]
+    direction LR
+    C[Lê as rotas ativas com veículo<br/>mesma consulta de GET /api/rotas] --> D[Valida e ordena os pontos<br/>distâncias por Haversine] --> E[Cada veículo começa<br/>no ponto 1]
+  end
+  P --> F
+  subgraph F["A cada 3 s (setInterval)"]
+    direction LR
+    F1[Avança 20 km/h × 3 s<br/>≈ 16,7 m] --> F2[Interpola entre<br/>dois pontos] --> F3[No fim do circuito,<br/>recomeça e conta a volta] --> F4[Emite coleta:posicoes<br/>para todos os clientes]
+  end

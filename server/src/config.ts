@@ -17,7 +17,18 @@ const REF_PROJETO = /^[a-z0-9]{20}$/;
 
 const esquema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // A maioria das hospedagens define PORT; PORTA (nome do projeto) tem prioridade se existir.
   PORTA: z.coerce.number().int().min(1).max(65535).default(3333),
+  // Quantos proxies da hospedagem ficam na frente da API (0 = acesso direto). Com 1, o
+  // limite de tentativas passa a ver o IP real do visitante, e não o do proxy.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+  // A API também entrega o site (build do front em web/dist): front e API no mesmo
+  // endereço, como o cookie SameSite=Lax exige. "false" deixa só a API.
+  SERVIR_FRONT: z
+    .enum(['true', 'false'], 'SERVIR_FRONT deve ser true ou false')
+    .default('true')
+    .transform((valor) => valor === 'true'),
+  FRONT_DIST: z.string().trim().min(1).default('../web/dist'),
   DATABASE_URL: z
     .string({ error: 'DATABASE_URL é obrigatória (veja server/.env.example)' })
     .trim()
@@ -52,6 +63,8 @@ const esquema = z.object({
 export type Config = {
   ambiente: 'development' | 'test' | 'production';
   porta: number;
+  proxiesConfiaveis: number;
+  pastaFront: string | null; // build do front servido pela API (null = não servir)
   databaseUrl: string; // sem parâmetros de TLS
   bancoCertificadoCa: string; // PEM da CA do Supabase
   projetoSupabase: string; // ref do projeto (identifica o ambiente nos logs, sem segredo)
@@ -121,7 +134,7 @@ function lerCertificado(caminho: string): string {
 }
 
 export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const resultado = esquema.safeParse(env);
+  const resultado = esquema.safeParse({ ...env, PORTA: env.PORTA || env.PORT });
   if (!resultado.success) {
     falhar(resultado.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`));
   }
@@ -130,6 +143,8 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     ambiente: dados.NODE_ENV,
     porta: dados.PORTA,
+    proxiesConfiaveis: dados.TRUST_PROXY,
+    pastaFront: dados.SERVIR_FRONT ? path.resolve(PASTA_SERVER, dados.FRONT_DIST) : null,
     databaseUrl: banco.url,
     bancoCertificadoCa: lerCertificado(dados.DATABASE_SSL_CA),
     projetoSupabase: banco.projeto,

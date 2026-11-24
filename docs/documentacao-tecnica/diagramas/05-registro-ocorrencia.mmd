@@ -1,0 +1,11 @@
+flowchart TB
+  A([Cidadão envia o formulário · multipart, até 3 fotos]) --> V{"Validações: Origin permitida,<br/>campos (zod), fotos pelo conteúdo<br/>(jpeg/png/webp, até 5 MB)"}
+  V -- falha --> E[403 · 400 · 413]
+  V -- ok --> T
+  subgraph T["Transação no banco"]
+    direction LR
+    T1[Insere a ocorrência<br/>protocolo por gerar_protocolo] --> T2[Insere o histórico<br/>NULL → recebida] --> T3[Envia as fotos ao Storage<br/>e grava as referências]
+  end
+  T --> R{Sucesso?}
+  R -- não --> RB[ROLLBACK e remoção das fotos enviadas → 500 genérico]
+  R -- sim --> OK([COMMIT → 201 com o protocolo ECO-AAAA-XXXX-XXXX])

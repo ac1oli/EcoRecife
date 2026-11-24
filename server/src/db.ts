@@ -17,6 +17,8 @@ export function criarPool(databaseUrl: string, opcoes: OpcoesPool = {}): pg.Pool
     // Supabase Free: o pooler de sessão tem poucas conexões; 5 bastam para a API.
     max: 5,
     connectionTimeoutMillis: 10_000,
+    // Nenhuma consulta fica pendurada: depois de 20 s ela falha e a conexão é descartada.
+    query_timeout: 20_000,
     idleTimeoutMillis: 30_000,
     keepAlive: true,
     application_name: 'ecorecife-api',

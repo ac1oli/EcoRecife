@@ -1,0 +1,14 @@
+sequenceDiagram
+  autonumber
+  participant G as Gestor (navegador)
+  participant A as API
+  participant B as Banco
+  G->>A: PATCH /api/ocorrencias/:id/status (cookie de sessão)
+  Note over A,B: exigirSessao (401) e exigirPerfil admin/gestor (403)
+  A->>B: BEGIN · SELECT ... FOR UPDATE
+  B-->>A: Status atual
+  Note over A,B: proximoStatus: transição permitida? (senão 409)
+  A->>B: UPDATE ocorrencias
+  A->>B: INSERT ocorrencia_historico (usuário da sessão)
+  A->>B: COMMIT
+  A-->>G: 200 com o detalhe atualizado

@@ -20,6 +20,8 @@ describe('carregarConfig', () => {
     expect(carregarConfig(BASE)).toEqual({
       ambiente: 'development',
       porta: 3333,
+      proxiesConfiaveis: 0,
+      pastaFront: path.resolve(import.meta.dirname, '../../web/dist'),
       databaseUrl: POOLER,
       bancoCertificadoCa: '-----BEGIN CERTIFICATE-----\nMIIfalso\n-----END CERTIFICATE-----\n',
       projetoSupabase: REF,
@@ -66,6 +68,18 @@ describe('carregarConfig', () => {
     expect(config.origensCors).toEqual(['https://eco.exemplo.org', 'http://localhost:5173']);
   });
 
+  it('usa PORT da hospedagem quando PORTA não existe; PORTA tem prioridade', () => {
+    expect(carregarConfig({ ...BASE, PORT: '10000' }).porta).toBe(10000);
+    expect(carregarConfig({ ...BASE, PORT: '10000', PORTA: '8080' }).porta).toBe(8080);
+    expect(carregarConfig({ ...BASE, PORT: '10000', PORTA: '' }).porta).toBe(10000);
+  });
+
+  it('lê TRUST_PROXY e SERVIR_FRONT/FRONT_DIST', () => {
+    expect(carregarConfig({ ...BASE, TRUST_PROXY: '1' }).proxiesConfiaveis).toBe(1);
+    expect(carregarConfig({ ...BASE, SERVIR_FRONT: 'false' }).pastaFront).toBeNull();
+    expect(carregarConfig({ ...BASE, FRONT_DIST: 'publico' }).pastaFront).toBe(path.resolve(import.meta.dirname, '../publico'));
+  });
+
   it('lê SESSAO_HORAS', () => {
     expect(carregarConfig({ ...BASE, SESSAO_HORAS: '24' }).sessaoHoras).toBe(24);
   });
@@ -87,6 +101,10 @@ describe('carregarConfig', () => {
     ['certificado ausente', { ...BASE, DATABASE_SSL_CA: path.join(PASTA, 'nao-existe.crt') }],
     ['certificado que não é PEM', { ...BASE, DATABASE_SSL_CA: NAO_PEM }],
     ['porta não numérica', { ...BASE, PORTA: 'abc' }],
+    ['PORT inválida', { ...BASE, PORT: 'abc' }],
+    ['TRUST_PROXY negativo', { ...BASE, TRUST_PROXY: '-1' }],
+    ['TRUST_PROXY alto demais', { ...BASE, TRUST_PROXY: '9' }],
+    ['SERVIR_FRONT fora de true/false', { ...BASE, SERVIR_FRONT: 'sim' }],
     ['porta fora do intervalo', { ...BASE, PORTA: '70000' }],
     ['ambiente desconhecido', { ...BASE, NODE_ENV: 'staging' }],
     ['origem CORS inválida', { ...BASE, CORS_ORIGENS: 'localhost:5173' }],

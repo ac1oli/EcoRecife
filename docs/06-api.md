@@ -30,7 +30,9 @@ Preencha o `.env` como no [guia do banco](03-banco-de-dados.md), seção 1. O ce
 | `SUPABASE_URL` | sim (API) | (nenhum) | `https://<id>.supabase.co`, do mesmo projeto do banco |
 | `SUPABASE_SECRET_KEY` | sim (API) | (nenhum) | Secret key (`sb_secret_...`) para o Storage das fotos. A publishable key é recusada |
 | `SUPABASE_BUCKET_FOTOS` | não | `ocorrencias-fotos` | Bucket privado das fotos (seção 6.12) |
-| `PORTA` | não | `3333` | Porta HTTP da API |
+| `PORTA` | não | `3333` | Porta HTTP da API. Sem ela (ou vazia), vale a `PORT` definida pela hospedagem |
+| `TRUST_PROXY` | não | `0` | Proxies na frente da API (hospedagem: `1`), para o limite de tentativas ver o IP real |
+| `SERVIR_FRONT` / `FRONT_DIST` | não | `true` / `../web/dist` | A API entrega o build do front no mesmo endereço ([07-implantacao.md](07-implantacao.md)) |
 | `NODE_ENV` | não | `development` | `development`, `test` ou `production` |
 | `CORS_ORIGENS` | não | `http://localhost:5173` | Origens do navegador autorizadas, separadas por vírgula (sem `*`). Também é a lista usada na proteção contra CSRF (seção 6.2) |
 | `SESSAO_HORAS` | não | `8` | Duração da sessão de login, de 1 a 168 horas |
@@ -117,7 +119,7 @@ Invoke-RestMethod http://localhost:3333/api/saude
 | Comando (na pasta `server/`) | Para que serve |
 |---|---|
 | `pnpm dev` | API com recarga automática |
-| `pnpm start` | API sem recarga |
+| `pnpm start` | API compilada (`node dist/server.js`), sem `tsx`: rode `pnpm build` antes. É o comando da hospedagem |
 | `pnpm typecheck` | Verifica os tipos (esperado: nenhuma saída) |
 | `pnpm build` | Compila para `server/dist/` (confere que o código compila) |
 | `pnpm test` | Testes automatizados (seção 5) |

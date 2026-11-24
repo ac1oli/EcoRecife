@@ -1,0 +1,16 @@
+sequenceDiagram
+  autonumber
+  participant N as Navegador
+  participant A as API Express
+  participant B as PostgreSQL (Supabase)
+  participant S as Storage (Supabase)
+  N->>A: Requisição HTTP (JSON ou multipart)
+  Note over A,B: helmet · CORS · verificação de Origin · limite de tentativas
+  Note over A,B: Validação com zod (e sessão + perfil nas rotas protegidas)
+  A->>B: Consulta parametrizada ($1, $2...) via Session pooler (TLS)
+  B-->>A: Linhas
+  opt Rotas com fotos
+    A->>S: Envio ou leitura do arquivo (secret key)
+    S-->>A: Arquivo
+  end
+  A-->>N: Resposta JSON (ou imagem) sem detalhes internos
