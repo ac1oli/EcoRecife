@@ -25,6 +25,7 @@ Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 |---|---|
 | Front-end | [docs/05-execucao-local.md](docs/05-execucao-local.md): `cd web && pnpm install --frozen-lockfile && pnpm dev` |
 | Banco de dados | **Supabase** (PostgreSQL gerenciado, plano Free), sem instalação local: [docs/03-banco-de-dados.md](docs/03-banco-de-dados.md) |
+| Hospedagem | [docs/07-implantacao.md](docs/07-implantacao.md): site e API num único serviço Node |
 | API | [docs/06-api.md](docs/06-api.md): `cd server && corepack pnpm install --frozen-lockfile`, configurar o `.env` (Supabase), `corepack pnpm db:migrar` e `corepack pnpm dev` |
 
 ## Documentação
@@ -35,15 +36,6 @@ Andamento por checkpoint: [plano de execução](docs/04-plano-execucao.md).
 4. [Plano de execução (checkpoints)](docs/04-plano-execucao.md)
 5. [Execução local do front](docs/05-execucao-local.md)
 6. [API: instalação, comandos e endpoints](docs/06-api.md)
-7. [Resumo de continuidade](docs/CONTINUIDADE.md)
+7. [Implantação (hospedar o site e a API)](docs/07-implantacao.md)
+8. [Resumo de continuidade](docs/CONTINUIDADE.md)
 
-
-
-## Participantes do Desenvolvimento do sistema e cargo de cada um no projeto:
-
-| Nome | Cargo|
-|---|---|
-|Alexsandro Acioli - 01831915| DESENVOLVEDOR BACK-END|
-|João Batista - 01924256| DESENVOLVER FRONT-END |
-|Talles Eduardo - 01932648|DESENVOLVEDOR FRONT-END|
-|João Vitor - 01925622|DESENVOLVEDOR FRONT-END|

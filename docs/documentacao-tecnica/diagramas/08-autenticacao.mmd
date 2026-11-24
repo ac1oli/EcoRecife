@@ -1,0 +1,19 @@
+sequenceDiagram
+  autonumber
+  participant U as Gestor
+  participant A as API
+  participant B as Banco
+  U->>A: POST /api/auth/login {email, senha}
+  Note over A,B: Limite: 10 falhas por IP em 15 min (429)
+  A->>B: Busca o usuário pelo e-mail
+  Note over A,B: bcrypt.compare (hash fictício se o e-mail não existir)
+  alt credenciais inválidas ou usuário inativo
+    A-->>U: 401 mensagem única
+  else válidas
+    Note over A,B: Token aleatório de 32 bytes
+    A->>B: INSERT sessoes (apenas o SHA-256 do token)
+    A-->>U: 200 + cookie HttpOnly, SameSite=Lax
+  end
+  U->>A: Requisição protegida com o cookie
+  A->>B: Sessão válida, não expirada e usuário ativo?
+  A-->>U: 200, 401 ou 403 conforme sessão e perfil

@@ -1,0 +1,50 @@
+erDiagram
+  bairros ||--o{ pontos_descarte : "localiza"
+  pontos_descarte ||--o{ ponto_materiais : "aceita"
+  materiais ||--o{ ponto_materiais : "aceito em"
+  bairros |o--o{ veiculos : "atende"
+  veiculos |o--o{ rotas : "percorre"
+  rotas ||--o{ rota_pontos : "trajeto"
+  pontos_descarte {
+    integer id PK
+    tipo_ponto_descarte tipo
+    varchar nome
+    integer bairro_id FK
+    numeric latitude
+    numeric longitude
+    boolean demonstrativo
+    text fonte
+    boolean ativo
+  }
+  materiais {
+    smallint id PK
+    varchar slug UK
+    varchar nome UK
+  }
+  ponto_materiais {
+    integer ponto_id PK
+    smallint material_id PK
+  }
+  bairros {
+    integer id PK
+    varchar nome UK
+  }
+  veiculos {
+    integer id PK
+    varchar codigo UK
+    tipo_coleta tipo_coleta
+    integer bairro_id FK
+    boolean ativo
+  }
+  rotas {
+    integer id PK
+    varchar nome UK
+    integer veiculo_id FK
+    boolean ativa
+  }
+  rota_pontos {
+    integer rota_id PK
+    integer ordem PK
+    numeric latitude
+    numeric longitude
+  }

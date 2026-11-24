@@ -1,6 +1,6 @@
 # Resumo técnico de continuidade
 
-_Atualizado em 10/11/2026, ao fim da migração definitiva para o Supabase._
+_Atualizado em 23/11/2026, ao fim da preparação para hospedagem (site e API num único serviço)._
 
 **Repositório:** `ac1oli/EcoRecife` · branch de trabalho `claude/confident-pasteur-h9zmd3` (base `main`).
 
@@ -114,6 +114,29 @@ _Atualizado em 10/11/2026, ao fim da migração definitiva para o Supabase._
 - **Transação:** ponto, bairro e materiais numa só `emTransacao`; as colunas do `UPDATE` vêm de uma lista fixa.
 - **Campos públicos:** os do guia (inclui `demonstrativo`, `fonte` e `verificadoEm`). `ativo` e as datas internas só saem para o admin.
 - **Sem migração e sem dependência nova.**
+
+**Preparação para hospedagem (23/11/2026):** guia em `docs/07-implantacao.md`.
+- **Um único serviço:** a API entrega o build do front (`web/dist`) no mesmo endereço (`SERVIR_FRONT`, `FRONT_DIST`), o que resolve a pendência do cookie `SameSite=Lax`. `index.html` com `no-cache`; `assets/` com cache longo. A CSP do helmet passou a liberar `img-src` para `https://tile.openstreetmap.de` e `blob:` (mapa e fotos locais do protótipo).
+- **Hospedagem:**
+  - `PORT` é aceita quando `PORTA` não existe ou está vazia;
+  - `TRUST_PROXY` (0 a 5) liga o `trust proxy` do Express;
+  - `pnpm start` agora roda `node dist/server.js`, sem depender do `tsx`.
+- **Estabilidade da conexão:**
+  - `query_timeout` de 20 s no pool;
+  - a simulação tenta de novo sozinha (10 s → até 2 min) se o banco estiver fora quando a API sobe;
+  - `unhandledRejection` é registrada; `uncaughtException` é registrada e encerra de forma limpa, para a hospedagem reiniciar;
+  - o SIGTERM continua com encerramento limpo.
+- **Testes:**
+  - no Windows, o PostgreSQL descartável dos testes passou a iniciar pelo `pg_ctl` (`stdio: 'ignore'`), porque o `postgres.exe` recusa terminal de administrador. A sessão passou a rodar como administrador, e a suíte não iniciava;
+  - novos testes em `app.test.ts` (site, cache, CSP, trust proxy) e `config.test.ts` (`PORT`, `TRUST_PROXY`, `SERVIR_FRONT`).
+- **Resultados (23/11):**
+  - `corepack pnpm test` **480/480**, `typecheck` e `build` sem erros; front com `build` OK;
+  - API compilada em modo de produção contra o Supabase (só leituras): site, assets, CSP, saúde, veículos, rotas, 404, limite de login e Socket.IO OK;
+  - com o banco inalcançável, o site seguiu no ar, a saúde deu 503 e a simulação tentou de novo em 10, 20 e 40 s.
+- **Observado e não alterado:** o PostgreSQL 16 local (`postgresql-x64-16`) foi reinstalado na máquina e está rodando. A API não depende dele (só aceita o Supabase).
+- **Pendências:**
+  - escolher e criar a hospedagem (decisão e conta do usuário);
+  - o CP3: o site publicado ainda é o protótipo, que não usa a API.
 
 **Migração para o Supabase (10/11/2026, autorizada pelo usuário):**
 - **Arquitetura:**

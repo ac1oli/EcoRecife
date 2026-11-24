@@ -10,6 +10,8 @@ import {
   type Config,
   type ConfigStorage,
 } from './config.js';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { bancoDisponivel, criarPool } from './db.js';
 import { criarArmazenamentoSupabase, criarClienteStorage, problemasDoBucket } from './ocorrencias/armazenamento-supabase.js';
 
@@ -32,11 +34,17 @@ const pool = criarPool(config.databaseUrl, { certificadoCa: config.bancoCertific
 const fotos = criarArmazenamentoSupabase(configStorage);
 const app = criarApp({ ...config, fotos }, pool);
 let tempoReal: TempoReal = null;
+let novaTentativa: NodeJS.Timeout | undefined;
+let encerrando = false;
 
 const servidor = app.listen(config.porta, async () => {
   console.log(`[api] EcoRecife ouvindo em http://localhost:${config.porta} (${config.ambiente})`);
   console.log(`[db] banco oficial: Supabase · projeto ${config.projetoSupabase} (TLS verificado)`);
   console.log(`[fotos] ${fotos.descricao}`);
+  if (!config.pastaFront) console.log('[site] não servido pela API (SERVIR_FRONT=false)');
+  else if (existsSync(path.join(config.pastaFront, 'index.html'))) console.log(`[site] servido pela API a partir de ${config.pastaFront}`);
+  else console.warn(`[site] aviso: build do front não encontrado em ${config.pastaFront} (rode o build do web/); só a API responde`);
+  if (config.proxiesConfiaveis) console.log(`[api] atrás de ${config.proxiesConfiaveis} proxy(s) confiável(is) (TRUST_PROXY)`);
   if (!(await bancoDisponivel(pool))) {
     console.warn(
       '[api] aviso: o Supabase não respondeu. Confira DATABASE_URL, o certificado e a internet ' +
@@ -57,8 +65,9 @@ async function conferirBucket() {
   }
 }
 
-// Sem as rotas (banco fora), a API segue sem a simulação; ela volta ao reiniciar a API.
-async function ligarSimulacao() {
+// Sem as rotas (banco fora ou projeto pausado), a API segue no ar e tenta ligar a simulação
+// de novo sozinha: 10 s, 20 s, 40 s... até 2 min entre as tentativas.
+async function ligarSimulacao(tentativa = 1) {
   if (!config.simulacaoAtiva) {
     console.log('[coleta] simulação desligada (SIMULACAO_ATIVA=false)');
     return;
@@ -66,7 +75,15 @@ async function ligarSimulacao() {
   try {
     tempoReal = await iniciarTempoReal(servidor, pool, config);
   } catch (erro) {
-    console.error('[coleta] simulação não iniciada: não foi possível ler as rotas.', (erro as Error).message);
+    if (encerrando) return;
+    const espera = Math.min(10_000 * 2 ** (tentativa - 1), 120_000);
+    console.error(
+      `[coleta] simulação não iniciada (tentativa ${tentativa}): não foi possível ler as rotas.`,
+      (erro as Error).message,
+      `Nova tentativa em ${espera / 1000} s.`,
+    );
+    novaTentativa = setTimeout(() => void ligarSimulacao(tentativa + 1), espera);
+    novaTentativa.unref();
     return;
   }
   const { simulador } = tempoReal!;
@@ -85,14 +102,28 @@ servidor.on('error', (erro: NodeJS.ErrnoException) => {
 
 // Encerramento limpo (Ctrl+C): para a simulação, desconecta os sockets, para de aceitar
 // conexões e fecha o pool.
-function encerrar() {
+function encerrar(codigo = 0) {
+  if (encerrando) return;
+  encerrando = true;
+  clearTimeout(novaTentativa);
   console.log('[api] encerrando...');
   const fecharPool = () => {
-    pool.end().finally(() => process.exit(0));
+    pool.end().finally(() => process.exit(codigo));
   };
   if (tempoReal) void tempoReal.encerrar().then(fecharPool); // também fecha o servidor HTTP
   else servidor.close(fecharPool);
   setTimeout(() => process.exit(1), 10_000).unref();
 }
-process.on('SIGINT', encerrar);
-process.on('SIGTERM', encerrar);
+process.on('SIGINT', () => encerrar());
+process.on('SIGTERM', () => encerrar()); // a hospedagem envia SIGTERM ao reiniciar ou atualizar
+
+// Uma promessa rejeitada sem tratamento é registrada, e a API continua. Uma exceção não
+// tratada deixa o processo num estado incerto: registra, encerra de forma limpa e a
+// hospedagem reinicia o serviço.
+process.on('unhandledRejection', (motivo) => {
+  console.error('[api] promessa rejeitada sem tratamento:', motivo instanceof Error ? motivo.message : motivo);
+});
+process.on('uncaughtException', (erro) => {
+  console.error('[api] erro inesperado; encerrando para reiniciar:', erro);
+  encerrar(1);
+});

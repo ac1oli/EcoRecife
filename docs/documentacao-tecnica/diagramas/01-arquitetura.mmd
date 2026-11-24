@@ -1,0 +1,25 @@
+flowchart TB
+  subgraph Cliente["Navegador (cidadão e gestão)"]
+    WEB["Front-end · React 19 + TypeScript + Vite<br/>Tailwind CSS · Leaflet"]
+  end
+  OSM["Tiles do<br/>OpenStreetMap"]
+  subgraph API["Back-end (server/) · Node.js 22 + Express 5"]
+    direction LR
+    EXP["API REST<br/>zod · helmet · CORS<br/>limite de tentativas"]
+    AUTH["Autenticação própria<br/>bcrypt + sessão em cookie"]
+    SIM["Motor da simulação<br/>(posições em memória)"]
+    WS["Socket.IO<br/>coleta:posicoes"]
+  end
+  subgraph SUPA["Supabase (plano Free)"]
+    direction LR
+    PG[("PostgreSQL 17<br/>14 tabelas · RLS")]
+    ST[("Storage<br/>bucket privado")]
+  end
+  WEB -- "HTTP/JSON<br/>(integração no CP3)" --> EXP
+  WEB -. "WebSocket<br/>(integração no CP3)" .-> WS
+  WEB -- "imagens do mapa" --> OSM
+  EXP --- AUTH
+  SIM --> WS
+  EXP -- "pg · Session pooler<br/>TLS verificado" --> PG
+  SIM -- "lê as rotas<br/>ao iniciar" --> PG
+  EXP -- "REST · secret key<br/>(só no servidor)" --> ST

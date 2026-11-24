@@ -1,0 +1,53 @@
+erDiagram
+  usuarios ||--o{ sessoes : "possui"
+  usuarios |o--o{ ocorrencia_historico : "registra"
+  bairros ||--o{ ocorrencias : "localiza"
+  categorias_ocorrencia ||--o{ ocorrencias : "classifica"
+  ocorrencias ||--o{ ocorrencia_historico : "tem"
+  ocorrencias ||--o{ ocorrencia_fotos : "tem (0 a 3)"
+  usuarios {
+    bigint id PK
+    varchar email UK
+    text senha_hash
+    perfil_usuario perfil
+    boolean ativo
+  }
+  sessoes {
+    bigint id PK
+    bigint usuario_id FK
+    bytea token_hash UK
+    timestamptz expira_em
+  }
+  bairros {
+    integer id PK
+    varchar nome UK
+    numeric latitude
+    numeric longitude
+    boolean demonstrativo
+  }
+  categorias_ocorrencia {
+    smallint id PK
+    varchar slug UK
+    varchar nome UK
+  }
+  ocorrencias {
+    bigint id PK
+    varchar protocolo UK
+    smallint categoria_id FK
+    integer bairro_id FK
+    status_ocorrencia status
+    prioridade_ocorrencia prioridade
+    timestamptz concluido_em
+  }
+  ocorrencia_fotos {
+    uuid id PK
+    bigint ocorrencia_id FK
+    smallint ordem
+    text chave_armazenamento UK
+  }
+  ocorrencia_historico {
+    bigint id PK
+    bigint ocorrencia_id FK
+    status_ocorrencia status_novo
+    bigint usuario_id FK
+  }

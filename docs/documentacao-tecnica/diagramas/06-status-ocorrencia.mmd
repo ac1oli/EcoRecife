@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> recebida : registro do cidadão
+  recebida --> em_analise : PATCH /status
+  em_analise --> recebida : PATCH /status
+  em_analise --> equipe_designada : PATCH /status
+  equipe_designada --> em_analise : PATCH /status
+  recebida --> equipe_designada : PATCH /status
+  equipe_designada --> recebida : PATCH /status
+  recebida --> concluida : POST /concluir
+  em_analise --> concluida : POST /concluir
+  equipe_designada --> concluida : POST /concluir
+  concluida --> em_analise : POST /reabrir

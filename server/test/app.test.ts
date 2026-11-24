@@ -1,4 +1,5 @@
 // Testes da aplicação Express com um banco falso (sem PostgreSQL).
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import request from 'supertest';
@@ -60,5 +61,56 @@ describe('segurança básica', () => {
       .send('{"quebrado":');
     expect(resposta.status).toBe(400);
     expect(resposta.body).toEqual({ erro: 'Requisição inválida' });
+  });
+});
+
+describe('hospedagem: site servido pela API, proxy e CSP', () => {
+  const pastaSite = mkdtempSync(path.join(tmpdir(), 'ecorecife-site-'));
+  mkdirSync(path.join(pastaSite, 'assets'));
+  writeFileSync(path.join(pastaSite, 'index.html'), '<!doctype html><title>EcoRecife</title>');
+  writeFileSync(path.join(pastaSite, 'assets', 'index-abc123.js'), 'console.log(1)');
+  const comSite = criarApp({ ...config, pastaFront: pastaSite, proxiesConfiaveis: 1 }, bancoOk as never);
+
+  it('entrega o index.html na raiz, sempre revalidado', async () => {
+    const r = await request(comSite).get('/');
+    expect(r.status).toBe(200);
+    expect(r.text).toContain('<title>EcoRecife</title>');
+    expect(r.headers['cache-control']).toBe('no-cache');
+  });
+
+  it('assets com hash no nome ficam em cache longo', async () => {
+    const r = await request(comSite).get('/assets/index-abc123.js');
+    expect(r.status).toBe(200);
+    expect(r.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+  });
+
+  it('a API continua respondendo e o 404 da API segue em JSON', async () => {
+    expect((await request(comSite).get('/api/saude')).status).toBe(200);
+    const r = await request(comSite).get('/api/nao-existe');
+    expect(r.status).toBe(404);
+    expect(r.body).toEqual({ erro: 'Recurso não encontrado' });
+  });
+
+  it('não expõe arquivos fora da pasta do site', async () => {
+    expect((await request(comSite).get('/../package.json')).status).toBe(404);
+    expect((await request(comSite).get('/%2e%2e/package.json')).status).toBe(404);
+  });
+
+  it('sem o build (ou com SERVIR_FRONT=false) só a API responde', async () => {
+    const semSite = criarApp({ ...config, pastaFront: path.join(pastaSite, 'nao-existe') }, bancoOk as never);
+    expect((await request(semSite).get('/')).status).toBe(404);
+    expect((await request(criarApp({ ...config, pastaFront: null }, bancoOk as never)).get('/')).status).toBe(404);
+  });
+
+  it('CSP libera só as imagens do mapa (OpenStreetMap) além do próprio site', async () => {
+    const csp = (await request(comSite).get('/')).headers['content-security-policy'];
+    expect(csp).toContain("img-src 'self' data: blob: https://tile.openstreetmap.de");
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self'");
+  });
+
+  it('trust proxy só quando configurado', () => {
+    expect(comSite.get('trust proxy')).toBe(1);
+    expect(criarApp(config, bancoOk as never).get('trust proxy')).toBe(false);
   });
 });
